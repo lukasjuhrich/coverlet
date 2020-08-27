@@ -1,4 +1,16 @@
-# Coverlet
+# Relevant to this fork
+
+The version assembly attribute is set automatically based on the contents of the `version.json`
+files and the `PublicRelease` property.
+
+Release process (make sure you're on master):
+
+```bash
+dotnet  build -c release coverlet.sln
+dotnet pack -c release coverlet.sln -p:PublicRelease=True
+```
+
+# Coverlet (original doku)
 
 [![Build Status](https://dev.azure.com/tonerdo/coverlet/_apis/build/status/coverlet-coverage.coverlet?branchName=master)](https://dev.azure.com/tonerdo/coverlet/_build/latest?definitionId=5&branchName=master) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/tonerdo/coverlet/blob/master/LICENSE)   
 
