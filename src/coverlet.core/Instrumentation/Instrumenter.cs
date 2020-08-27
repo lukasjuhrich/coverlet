@@ -433,6 +433,7 @@ namespace Coverlet.Core.Instrumentation
                 if (_instrumentationHelper.IsLocalMethod(method.Name))
                     actualMethod = methods.FirstOrDefault(m => m.Name == method.Name.Split('>')[0].Substring(1)) ?? method;
 
+                _logger.LogVerbose($"Visiting method {method.Name}…");
                 if (actualMethod.IsGetter || actualMethod.IsSetter)
                 {
                     if (_skipAutoProps && actualMethod.CustomAttributes.Any(ca => ca.AttributeType.FullName == typeof(CompilerGeneratedAttribute).FullName))
@@ -454,6 +455,15 @@ namespace Coverlet.Core.Instrumentation
 
                 if (IsSynthesizedMemberToBeExcluded(method))
                 {
+                    continue;
+                }
+
+                var isMethodExcluded = _instrumentationHelper.IsMethodExcluded(_module, type.FullName, method.Name, _excludeFilters);
+                var isMethodIncluded = _instrumentationHelper.IsMethodIncluded(_module, type.FullName, method.Name, _includeFilters);
+                if (isMethodExcluded || !isMethodIncluded)
+                {
+                    _logger.LogInformation($"Excluded method [{_module}]{type.FullName}/{method.Name} because " +
+                                           (isMethodExcluded ? "it matched one of the exclude filters" : "it didn't match one of the include filters"));
                     continue;
                 }
 

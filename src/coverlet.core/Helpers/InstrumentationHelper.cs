@@ -281,8 +281,24 @@ namespace Coverlet.Core.Helpers
             if (filter.EndsWith("]"))
                 return false;
 
-            if (new Regex(@"[^\w*]").IsMatch(filter.Replace(".", "").Replace("?", "").Replace("[", "").Replace("]", "")))
+            if (new Regex(@"[^\w*]").IsMatch
+            (filter.Replace(".", "")
+                .Replace("?", "")
+                .Replace("[", "")
+                .Replace("]", "")
+                .Replace("(", "")
+                .Replace(")", "")
+            ))
                 return false;
+
+            try
+            {
+                DeconstructFilter(filter);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return false;
+            }
 
             return true;
         }
@@ -366,6 +382,31 @@ namespace Coverlet.Core.Helpers
             return IsTypeFilterMatch(module, type, includeFilters);
         }
 
+        public bool IsMethodExcluded(string module, string type, string method, string[] excludeFilters)
+        {
+            if (excludeFilters == null || excludeFilters.Length == 0)
+                return false;
+
+            module = Path.GetFileNameWithoutExtension(module);
+            if (module == null || type == null)
+                return false;
+
+            return IsMethodMatch(module, type, method, excludeFilters);
+        }
+
+        public bool IsMethodIncluded(string module, string type, string method, string[] includeFilters)
+        {
+            // This method is included by default if there are no method-aware `include` rules
+            if (includeFilters == null || !includeFilters.Any(IsMethodAwareFilter))
+                return true;
+
+            module = Path.GetFileNameWithoutExtension(module);
+            if (module == null || type == null)
+                return true;
+
+            return IsMethodMatch(module, type, method, includeFilters);
+        }
+
         public bool IsLocalMethod(string method)
             => new Regex(WildcardToRegex("<*>*__*|*")).IsMatch(method);
 
@@ -381,13 +422,38 @@ namespace Coverlet.Core.Helpers
 
             foreach (var filter in filters)
             {
-                string typePattern = filter.Substring(filter.IndexOf(']') + 1);
-                string modulePattern = filter.Substring(1, filter.IndexOf(']') - 1);
+                var (modulePattern, typePattern, rest) = DeconstructFilter(filter);
+                if (!string.IsNullOrEmpty(rest))
+                {
+                    continue;  // does not match the type by definition
+                }
 
                 typePattern = WildcardToRegex(typePattern);
                 modulePattern = WildcardToRegex(modulePattern);
 
                 if (new Regex(typePattern).IsMatch(type) && new Regex(modulePattern).IsMatch(module))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool IsMethodMatch(string module, string type, string method, string[] filters)
+        {
+            Debug.Assert(module != null);
+            Debug.Assert(filters != null);
+
+            foreach (var filter in filters)
+            {
+                var (modulePattern, typePattern, methodPattern) = DeconstructFilter(filter);
+                methodPattern = string.IsNullOrEmpty(methodPattern) ? "*" : methodPattern;
+
+                modulePattern = WildcardToRegex(modulePattern);
+                typePattern = WildcardToRegex(typePattern);
+                methodPattern = WildcardToRegex(methodPattern);
+
+                if (new Regex(modulePattern).IsMatch(module) && new Regex(typePattern).IsMatch(type) &&
+                        new Regex(methodPattern).IsMatch(method))
                     return true;
             }
 
@@ -437,6 +503,27 @@ namespace Coverlet.Core.Helpers
             {
                 return false;
             }
+        }
+
+        /// <exception cref="IndexOutOfRangeException">If e.g. the appropriate brackets are not found</exception>
+        private static (string moduleFilter, string typeFilter, string methodFilter) DeconstructFilter(string filter)
+        {
+            var assemblyPart = filter.Substring(1, filter.IndexOf(']') - 1);
+            var rest = filter.Substring(filter.IndexOf(']') + 1);
+            if (!IsMethodAwareFilter(filter))
+            {
+                return (assemblyPart, rest, "");
+            }
+
+            var typePart = rest.Substring(0, rest.IndexOf('('));
+            var methodPart = rest.Substring(rest.IndexOf('(') + 1);
+            methodPart = methodPart.Remove(methodPart.Length - 1);
+            return (assemblyPart, typePart, methodPart);
+        }
+
+        private static bool IsMethodAwareFilter(string filter)
+        {
+            return filter.Contains('(');
         }
     }
 }

@@ -11,6 +11,8 @@
         bool IsValidFilterExpression(string filter);
         bool IsTypeExcluded(string module, string type, string[] excludeFilters);
         bool IsTypeIncluded(string module, string type, string[] includeFilters);
+        bool IsMethodExcluded(string module, string type, string method, string[] excludeFilters);
+        bool IsMethodIncluded(string module, string type, string method, string[] includeFilters);
         void RestoreOriginalModule(string module, string identifier);
         bool EmbeddedPortablePdbHasLocalSource(string module, out string firstNotFoundDocument);
         bool PortablePdbHasLocalSource(string module, out string firstNotFoundDocument);

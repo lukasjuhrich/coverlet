@@ -60,10 +60,19 @@ namespace Coverlet.Core.Helpers.Tests
             Assert.True(_instrumentationHelper.IsValidFilterExpression("[assembly]*"));
             Assert.True(_instrumentationHelper.IsValidFilterExpression("[*]type"));
             Assert.True(_instrumentationHelper.IsValidFilterExpression("[assembly]type"));
+            Assert.True(_instrumentationHelper.IsValidFilterExpression("[assembly]type{*methods?}"));
+            Assert.True(_instrumentationHelper.IsValidFilterExpression("[assembly]type"));
             Assert.False(_instrumentationHelper.IsValidFilterExpression("[*]"));
             Assert.False(_instrumentationHelper.IsValidFilterExpression("[-]*"));
             Assert.False(_instrumentationHelper.IsValidFilterExpression("*"));
-            Assert.False(_instrumentationHelper.IsValidFilterExpression("]["));
+            Assert.False(_instrumentationHelper.IsValidFilterExpression("}{"));
+            Assert.False(_instrumentationHelper.IsValidFilterExpression("{*}"));
+            Assert.False(_instrumentationHelper.IsValidFilterExpression("*{-}*"));
+            Assert.False(_instrumentationHelper.IsValidFilterExpression("{-}*[trndtrn]"));
+            Assert.False(_instrumentationHelper.IsValidFilterExpression("{-}*[trndtrn]*"));
+            Assert.False(_instrumentationHelper.IsValidFilterExpression("{-]*[trndtrn}*"));
+            Assert.False(_instrumentationHelper.IsValidFilterExpression("*"));
+            Assert.False(_instrumentationHelper.IsValidFilterExpression("}{"));
             Assert.False(_instrumentationHelper.IsValidFilterExpression(null));
         }
 
@@ -135,6 +144,23 @@ namespace Coverlet.Core.Helpers.Tests
             Assert.True(result);
         }
 
+        [Theory]
+        [MemberData(nameof(NonMatchingModuleData))]
+        public void TestIsModuleNotExcludedWithValidTypeStuff(string filter)
+        {
+            var result = _instrumentationHelper.IsModuleExcluded("Module.dll", new[] { filter });
+            Assert.False(result);
+        }
+
+        public static IEnumerable<object[]> NonMatchingModuleData =>
+            new List<object[]>
+            {
+                new object[] {"[Module]a.b.Dto(Eq*)"},
+                new object[] {"[Module]a.b.Dto(EqualsX?)"},
+                new object[] {"[Module]a.b.Dto(Eq*sX?)"},
+                new object[] {"[Module]*(Eq*sX?)"},
+            };
+
         [Fact]
         public void TestIsTypeExcludedWithoutFilter()
         {
@@ -189,7 +215,10 @@ namespace Coverlet.Core.Helpers.Tests
 
             result = _instrumentationHelper.IsTypeIncluded("Module.dll", "a.b.Dto", new[] { filter });
             Assert.True(result);
-        }
+
+            result = _instrumentationHelper.IsTypeIncluded("Module.dll", "a.b.Dto", new[] { filter + "(methodName)" });
+            Assert.False(result);
+         }
 
         [Theory]
         [MemberData(nameof(ValidModuleAndNamespaceFilterData))]
@@ -202,7 +231,34 @@ namespace Coverlet.Core.Helpers.Tests
 
             result = _instrumentationHelper.IsTypeIncluded("Module.dll", "a.b.Dto", filters);
             Assert.True(result);
+
+            result = _instrumentationHelper.IsTypeIncluded("Module.dll", "a.b.Dto", new[] { filter + "(methodName)" });
+            Assert.False(result);
         }
+
+        [Theory]
+        [MemberData(nameof(ValidMethodFilterData))]
+        public void TestIsMethodExcludedAndIncludedWithFilter(string filter)
+        {
+            var result = _instrumentationHelper.IsMethodExcluded("Module.dll", "a.b.Dto", "Equals", new[] { filter });
+            Assert.True(result);
+
+            result = _instrumentationHelper.IsMethodIncluded("Module.dll", "a.b.Dto", "Equals", new[] { filter });
+            Assert.True(result);
+         }
+
+        [Theory]
+        [MemberData(nameof(ValidMethodFilterData))]
+        public void TestIsMethodExcludedAndIncludedWithFilterAndMismatch(string filter)
+        {
+            var filters = new[] { "[Mismatch]*", filter, "[Mismatch]*" };
+
+            var result = _instrumentationHelper.IsMethodExcluded("Module.dll", "a.b.Dto", "Equals", filters);
+            Assert.True(result);
+
+            result = _instrumentationHelper.IsMethodIncluded("Module.dll", "a.b.Dto", "Equals", filters);
+            Assert.True(result);
+         }
 
         [Fact]
         public void TestIncludeDirectories()
@@ -251,6 +307,14 @@ namespace Coverlet.Core.Helpers.Tests
                         new object[] { "[Module]*b.*" },
                     }
                 .Concat(ValidModuleFilterData);
+
+        public static IEnumerable<object[]> ValidMethodFilterData =>
+            new List<object[]>
+            {
+                new object[] { "[Module]a.b.Dto(Eq*)" },
+                new object[] { "[Module]a.b.Dto(EqualsX?)" },
+                new object[] { "[Module]a.b.Dto(Eq*sX?)" },
+            }.Concat(ValidModuleAndNamespaceFilterData);
     }
 }
 

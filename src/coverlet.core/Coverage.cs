@@ -111,6 +111,7 @@ namespace Coverlet.Core
 
             foreach (var module in modules)
             {
+                _logger.LogVerbose($"Visiting module {module}…");
                 if (_instrumentationHelper.IsModuleExcluded(module, _excludeFilters) ||
                     !_instrumentationHelper.IsModuleIncluded(module, _includeFilters))
                 {
